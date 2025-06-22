@@ -1,0 +1,243 @@
+---
+title: "Report"
+author: "Zespół projektowy"
+date: "2025-06-22"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Wstęp
+
+## Pobieranie danych
+
+```{r eval=FALSE, include=FALSE}
+# Pobranie danych o stacjach MEVO
+stations_url <- "https://gbfs.urbansharing.com/rowermevo.pl/station_information.json"
+stations <- fromJSON(content(GET(stations_url), "text"))$data$stations
+
+# Pobranie statusu stacji
+status_url <- "https://gbfs.urbansharing.com/rowermevo.pl/station_status.json"
+status <- fromJSON(content(GET(status_url), "text"))$data$stations
+```
+
+## Analiza wstępna
+
+TODO
+
+
+## Ładowanie danych
+
+```{r data import}
+data <- read.csv("./Data/Processed data/data_mevo.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
+
+data <- subset(data, select = -address)
+# head(data)     # Pierwsze wiersze
+# str(data)      # Struktura danych (typy kolumn)
+# summary(data)  # Podsumowanie statystyczne
+```
+
+## Kartogram
+
+```{r libraries, message=TRUE, include=FALSE}
+for (lib in c("osmdata", "sf", "dplyr", "ggplot2", "ggspatial", "httr", "jsonlite", "leaflet", "ks")) {
+  if (!require(lib, character.only = TRUE)) install.packages(lib) 
+  library(lib, character.only = TRUE)
+}
+```
+
+
+Pobranie danych przestrzennych:
+
+```{r pressure, eval=FALSE, include=FALSE}
+# Pobranie danych MEVO z API
+url <- "https://gbfs.urbansharing.com/rowermevo.pl/station_information.json"
+response <- GET(url)
+data <- fromJSON(content(response, "text"))
+
+# Przetworzenie na sf (punkty ze współrzędnymi)
+stacje_mevo <- st_as_sf(
+  data$data$stations,
+  coords = c("lon", "lat"),
+  crs = 4326  # WGS84
+)
+
+# Filtruj tylko Trójmiasto (Gdańsk, Gdynia, Sopot)
+stacje_mevo <- stacje_mevo %>%
+  filter(
+    grepl("^GDA|^GDY|^SOP|^RED|^ZUK|^PRU|^RUM", name)
+  )
+
+# Granice dzielnic z OSM
+dzielnice <- opq(bbox = c(18.4, 54.3, 18.7, 54.5)) %>%
+  add_osm_feature(key = "boundary", value = "administrative") %>%
+  add_osm_feature(key = "admin_level", value = "8") %>%  # poziom dzielnic
+  osmdata_sf() %>%
+  .$osm_multipolygons
+```
+```{r eval=FALSE, include=FALSE}
+miasta <- c("Gdańsk", "Gdynia", "Sopot", "Żukowo", "Reda", "Pruszcz Gdański")
+
+# Pobieramy dane dla każdego miasta osobno
+pobierz_granice <- function(nazwa_miasta) {
+  opq(bbox = nazwa_miasta) %>%
+    add_osm_feature(key = "boundary", value = "administrative") %>%
+    add_osm_feature(key = "admin_level", value = "8") %>%  # 8 = poziom miasta/gminy
+    osmdata_sf() %>%
+    .$osm_multipolygons %>%
+    filter(name == nazwa_miasta) %>%
+    select(name, geometry)
+}
+
+# Stosujemy funkcję do wszystkich miast
+granice_miast <- lapply(miasta, pobierz_granice) %>% 
+  bind_rows()
+
+ggplot() +
+  geom_sf(data = granice_miast, fill = "#f0f0f0", color = "white", size = 0.3) +  # Tło
+  geom_sf(
+    data = stacje_mevo,
+    aes(color = "MEVO"),
+    size = 3,
+    shape = 19
+  ) +
+  scale_color_manual(values = c("MEVO" = "#2ecc71"), name = "") +
+  geom_sf_text(
+    data = stacje_mevo,
+    aes(label = name),
+    size = 2.5,
+    nudge_y = 0.001,
+    check_overlap = TRUE
+  ) +
+  labs(
+    title = "Stacje rowerowe MEVO w Trójmieście",
+    caption = "Źródło: API MEVO, OpenStreetMap"
+  ) +
+  theme_void() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+
+```
+
+
+
+
+```{r}
+stations <- data# %>%
+# filter(
+#   grepl("^GDA|^GDY|^SOP", name)
+# )
+  
+# Połączenie danych
+mevo_data <- stations %>%
+  # mutate(
+  #   borrowed_bikes = ifelse(capacity <= 50, capacity - num_bikes_available, 10)  # Oblicz liczbę wypożyczonych rowerów
+  # ) %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+stacje <- mevo_data
+
+ 
+# Interaktywna mapa z kolorami w zależności od liczby wypożyczonych rowerów
+mapa <- leaflet(stacje) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    radius = 10, #~ifelse(bilans > 0, 10, 3),  # Promień proporcjonalny do liczby rowerów
+    color = ~colorBin(palette = "RdYlGn", domain=bilans, bins=c(-Inf, -1000, -500, 0, 500, 1000, Inf))(bilans),  # Kolorystyka
+    fillOpacity = 0.9,
+    stroke = FALSE,
+    popup = ~paste("<b>", name, "</b><br>",
+                   # "ID: ", station_id, "<br>",
+                   # "Rowery dostępne: ", num_bikes_available, "<br>",
+                   "Bilans: ", bilans, "<br>",
+                   "Pojemność stacji: ", capacity)
+  ) %>%
+  addLegend(
+    position = "bottomright",
+    pal = colorBin(palette = "RdYlGn", domain=stacje$bilans, bins=c(-Inf, -1000, -500, 0, 500, 1000, Inf)),
+    values = stacje$bilans,
+    title = "Liczba wypożyczonych rowerów (bilans)"
+  ) %>%
+  addControl(
+    "Stacje MEVO w Trójmieście - liczba wypożyczonych rowerów",
+    position = "topright"
+  )
+
+# Wyświetlenie mapy
+mapa
+```
+
+
+
+```{r}
+ 
+# Interaktywna mapa z kolorami w zależności od liczby wypożyczonych rowerów
+mapa <- leaflet(stacje) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    radius = 10, #~ifelse(bilans > 0, 10, 3),  # Promień proporcjonalny do liczby rowerów
+    color = ~colorQuantile("RdYlGn", distance_to_beach_m)(distance_to_beach_m),  # Kolorystyka
+    fillOpacity = 0.9,
+    stroke = FALSE,
+    popup = ~paste("<b>", name, "</b><br>",
+                   # "ID: ", station_id, "<br>",
+                   # "Rowery dostępne: ", num_bikes_available, "<br>",
+                   "distance_to_beach_m: ", distance_to_beach_m, "<br>",
+                   "Pojemność stacji: ", capacity)
+  ) %>%
+  addLegend(
+    position = "bottomright",
+    pal = colorQuantile("RdYlGn", stacje$distance_to_beach_m),
+    values = stacje$distance_to_beach_m,
+    title = "dystans do najbliższej plaży w metrach"
+  ) %>%
+  addControl(
+    "Stacje MEVO w Trójmieście - liczba wypożyczonych rowerów",
+    position = "topright"
+  )
+
+# Wyświetlenie mapy
+mapa
+```
+
+
+
+```{r}
+ 
+# Interaktywna mapa z kolorami w zależności od liczby wypożyczonych rowerów
+mapa <- leaflet(stacje) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    radius = 10, #~ifelse(bilans > 0, 10, 3),  # Promień proporcjonalny do liczby rowerów
+    color = ~colorBin("OrRd", public_tansport, n=2)(public_tansport),  # Kolorystyka
+    fillOpacity = 0.8,
+    stroke = FALSE,
+    popup = ~paste("<b>", name, "</b><br>",
+                   # "ID: ", station_id, "<br>",
+                   # "Rowery dostępne: ", num_bikes_available, "<br>",
+                   "public_transport: ", public_tansport, "<br>",
+                   "Pojemność stacji: ", capacity)
+  ) %>%
+  addLegend(
+    position = "bottomright",
+    pal = colorBin("OrRd", stacje$public_tansport, n=2),
+    values = stacje$public_tansport,
+    title = "liczba stacji transportu publicznego w promieniu 100m"
+  ) %>%
+  addControl(
+    "Stacje MEVO w Trójmieście - liczba wypożyczonych rowerów",
+    position = "topright"
+  )
+
+# Wyświetlenie mapy
+mapa
+
+# Opcjonalnie: zapis mapy do pliku HTML
+# htmlwidgets::saveWidget(mapa, "mevo_trojmiasto.html")
+```
+
