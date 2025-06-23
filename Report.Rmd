@@ -241,3 +241,118 @@ mapa
 # htmlwidgets::saveWidget(mapa, "mevo_trojmiasto.html")
 ```
 
+## Macierz wag przestrzennych
+
+```{r libraries, message=TRUE, include=FALSE}
+for (lib in c("geosphere")) {
+  if (!require(lib, character.only = TRUE)) install.packages(lib) 
+  library(lib, character.only = TRUE)
+}
+```
+
+```{r}
+# Wczytanie danych
+data <- read.csv("./Data/Processed data/data_mevo.csv")
+
+# Przygotowanie współrzędnych
+coords <- data %>% select(lon, lat) %>% as.matrix()
+station_names <- data$name
+
+# Obliczenie odległości geodezyjnych (w metrach)
+distances <- distm(coords, fun = distHaversine)
+
+# Próg w metrach (np. 1000 m = 1 km)
+threshold <- 5000
+
+W1 <- (distances <= threshold) * 1
+diag(W1) <- 0
+
+# Tworzenie macierzy sąsiedztwa 2. rzędu
+W2 <- W1 %*% W1  # mnożenie macierzy
+W2 <- (W2 > 0) * 1  # konwersja na wartości binarne
+diag(W2) <- 0     # wykluczenie diagonali
+W2 <- W2 - W1     # usunięcie sąsiadów 1. rzędu
+W2 <- (W2 > 0) * 1  # ponowna konwersja na wartości binarne
+
+# Nadanie nazw kolumn i wierszy
+rownames(W1) <- station_names
+colnames(W1) <- station_names
+
+# Normalizacja macierzy (opcjonalna)
+W1_norm <- W1 / rowSums(W1)
+W1_norm[is.na(W1_norm)] <- 0  # dla wierszy z zerowymi sumami
+
+W2_norm <- W2 / rowSums(W2)
+W2_norm[is.na(W2_norm)] <- 0
+
+
+# Wyniki
+cat("Macierz sąsiedztwa 1. rzędu (pierwsze 5x5):\n")
+print(W1[1:5, 1:5])
+
+cat("\nMacierz sąsiedztwa 2. rzędu (pierwsze 5x5):\n")
+print(W2[1:5, 1:5])
+
+# Zapis do plików z nazwami stacji
+write.csv(W1, "macierz_sasiedztwa_1_rzad.csv", row.names = TRUE)
+write.csv(W2, "macierz_sasiedztwa_2_rzad.csv", row.names = TRUE)
+
+# Wersja znormalizowana
+write.csv(W1_norm, "macierz_sasiedztwa_1_rzad_znormalizowana.csv", row.names = TRUE)
+write.csv(W2_norm, "macierz_sasiedztwa_2_rzad_znormalizowana.csv", row.names = TRUE)
+```
+## Wskaźnik Morana
+
+```{r libraries, message=TRUE, include=FALSE}
+for (lib in c("spdep")) {
+  if (!require(lib, character.only = TRUE)) install.packages(lib) 
+  library(lib, character.only = TRUE)
+}
+```
+
+
+```{r}
+# Wczytanie danych
+data <- read.csv("./Data/Processed data/data_mevo.csv")
+
+# Przygotowanie współrzędnych i nazw stacji
+coords <- data %>% select(lon, lat) %>% as.matrix()
+station_names <- data$name
+
+# Wybór zmiennej do analizy (np. rent_num - liczba wypożyczeń)
+variable <- data$bilans
+
+# 1. Obliczenie macierzy sąsiedztwa z zerową polityką
+knn_neighbors <- knn2nb(knearneigh(coords, k = 5)) # Użyj 5 najbliższych sąsiadów
+nb <- knn_neighbors
+
+# 2. Konwersja na obiekt listw z zero.policy=TRUE
+listw <- nb2listw(nb, style = "W", zero.policy = TRUE)
+
+# 3. Obliczenie wskaźnika Morana
+moran_result <- moran.test(variable, listw, randomisation = TRUE, zero.policy = TRUE)
+
+# 4. Wyniki
+print(moran_result)
+
+# 5. Wizualizacja moran.plot
+moran.plot(variable, listw, 
+           xlab = "Wartość zmiennej", 
+           ylab = "Opóźnienie przestrzenne",
+           main = "Diagram rozrzutu Morana")
+
+# 6. Test permutacyjny dla weryfikacji istotności
+set.seed(123)
+moran.mc(variable, listw, nsim = 999) %>% print()
+
+# 7. Zapis wyników do pliku
+sink("moran_results.txt")
+cat("Globalna autokorelacja przestrzenna - Moran's I\n\n")
+print(moran_result)
+sink()
+```
+
+## Modelowanie ekonometryczne
+
+
+
