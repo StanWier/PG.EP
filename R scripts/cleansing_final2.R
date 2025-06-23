@@ -474,11 +474,16 @@ if(length(moran_results) > 0) {
 }
 
 # Create Moran scatterplot for visualization
-variable <- data$bilans  # Example variable for visualization
+variable <- data$turnover_rate_norm  # Example variable for visualization
 moran.plot(variable, listw, 
-           xlab = "Variable Value (Bilans)", 
+           xlab = "Variable Value (turnover_rate_norm)", 
            ylab = "Spatial Lag",
-           main = "Moran's I Scatterplot")
+           main = "Moran's I Scatterplot") 
+
+#This Moran's I scatterplot confirms strong positive spatial autocorrelation (I = 0.336) in bike-sharing station turnover rates, 
+#showing that high-performing stations cluster together geographically and create spillover effects on their neighbors. The clear upward trend and 
+#distinct quadrants reveal that station performance is not independent - successful stations tend to be surrounded by other successful stations, 
+#validating the use of spatial econometric models and indicating significant network externalities in the bike-sharing system.
 
 # Monte Carlo significance test for robustness
 set.seed(123)
@@ -540,19 +545,25 @@ if(exists("moran_summary")) {
     }
   }
 }
+
 # Create a heatmap for correlation matrix visualization
 if(exists("cor_matrix")) {
   library(ggcorrplot)
   
-  ggcorrplot(cor_matrix, 
-             lab = TRUE, 
-             lab_size = 3, 
-             colors = c("red", "white", "blue"), 
-             title = "Correlation Matrix of Key Variables",
-             ggtheme = theme_minimal()) +
+  # Create and display the heatmap
+  heatmap_plot <- ggcorrplot(cor_matrix, 
+                             lab = TRUE, 
+                             lab_size = 3, 
+                             colors = c("red", "white", "blue"), 
+                             title = "Correlation Matrix of Key Variables",
+                             ggtheme = theme_minimal()) +
     theme(plot.title = element_text(hjust = 0.5))
   
-  ggsave("correlation_matrix_heatmap.png", width = 10, height = 8)
+  # Display the plot
+  print(heatmap_plot)
+  
+  # Save the plot
+  ggsave("correlation_matrix_heatmap.png", plot = heatmap_plot, width = 10, height = 8)
 }
 
 # =============================================================================
