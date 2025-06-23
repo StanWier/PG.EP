@@ -540,6 +540,20 @@ if(exists("moran_summary")) {
     }
   }
 }
+# Create a heatmap for correlation matrix visualization
+if(exists("cor_matrix")) {
+  library(ggcorrplot)
+  
+  ggcorrplot(cor_matrix, 
+             lab = TRUE, 
+             lab_size = 3, 
+             colors = c("red", "white", "blue"), 
+             title = "Correlation Matrix of Key Variables",
+             ggtheme = theme_minimal()) +
+    theme(plot.title = element_text(hjust = 0.5))
+  
+  ggsave("correlation_matrix_heatmap.png", width = 10, height = 8)
+}
 
 # =============================================================================
 # SUMMARY STATISTICS
@@ -614,7 +628,7 @@ print("=== 2000m DENSITY MODEL ===")
 summary(model3_lag)
 
 # Define best model specification based on AIC and significance
-formula_best <- turnover_rate_norm ~ density_2000m + distance_to_beach_m + public_tansport + points_of_interests
+formula_best <- turnover_rate_norm ~ density_2000m + distance_to_beach_m + public_tansport
 
 # =============================================================================
 # COMPREHENSIVE MODEL COMPARISON
@@ -813,3 +827,47 @@ cat("- Consider POI density in site selection criteria\n\n")
 print("=== SPATIAL ECONOMETRIC ANALYSIS COMPLETE ===")
 print("All models estimated, diagnostics performed, and results saved.")
 print("Use the spatial lag model as the primary specification for business insights.")
+
+
+
+# =============================================================================
+# BEST MODEL CHOICE
+# =============================================================================
+
+
+#Business Interpretation of SEM Results
+#Key Coefficients (SEM Model):
+#  - Density (2km): +10.65 turnover units per additional station
+#- Beach distance: -0.088 units per meter (closer = better)
+#- Public transport: +103.7 units if transit nearby
+#- Lambda: 0.392 (39% spatial correlation in unobserved factors)
+#Strategic Insights:
+  
+#  Network Density: Each additional station within 2km increases turnover by ~11 units
+#Transit Integration: Stations near public transport see 104-unit boost
+#Beach Proximity: Every 100m closer to beach = +8.8 turnover units
+#Spatial Effects: 39% of station performance depends on unobserved neighborhood characteristics
+
+# Final Recommendation
+#Use the Spatial Error Model (SEM) because:
+  
+#✅ Best statistical fit (lowest AIC)
+#✅ Theoretically appropriate for your  data
+#✅ Parsimonious (avoids overparameterization)
+#✅ All parameters highly significant
+#✅ Eliminates spatial autocorrelation in residuals
+
+#Report this as your primary model and mention LAG as robustness check since results are very similar.
+#📋 For Your Paper/Report:
+#  "We employ a spatial error model (SEM) as our primary specification, which accounts for spatial correlation in unobserved factors affecting 
+# bike-sharing demand. The SEM outperforms both ordinary least squares (∆AIC = 41.6) and spatial lag alternatives (∆AIC = 2.1), with a significant spatial error
+#parameter (λ = 0.392, p < 0.001) indicating substantial neighborhood effects in unmeasured determinants of station performance."
+#The SEM is your best choice! 
+
+# =============================================================================
+# FINAL NOTES
+# =============================================================================
+
+# List of unused new variables: morning/afternoon/evening/night_ratio/rent_num, net_demand_rate, peak_imbalance/ratio/load_factor. These variables can be deleted.
+# Density_2000m was chosen due to its significance in the SEM model, indicating that stations within a 2km radius have a strong impact on turnover rates.
+# points_of_interest were found to be statistically insignificant in most models
