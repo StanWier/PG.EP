@@ -1,5 +1,6 @@
 ---
-title: "Analiza efektywności stacji rowerowych MEVO"
+title: "ANALIZA PRZESTRZENNEJ RELATYWNEJ POPULARNOŚCI STACJI SYSTEMU MEVO"
+subtitle: "Identyfikacja kluczowych determinantów użytkowania z wykorzystaniem ekonometrii przestrzennej"
 author: "Michał Łochowski, Nazar Ostrowski, Norbert Gała, Stanisław Kochnowski"
 date: "`r Sys.Date()`"
 output:
@@ -13,7 +14,8 @@ output:
   pdf_document:
     toc: true
 ---
-*Repozytorium*: [github.com/StanWier/PG.EP](https://github.com/StanWier/PG.EP) 
+
+*Repozytorium*: [github.com/StanWier/PG.EP](https://github.com/StanWier/PG.EP)
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
@@ -21,17 +23,139 @@ knitr::opts_chunk$set(echo = FALSE)
 
 ## Wstęp
 
-### Cel projektu
+System Mevo stanowi jeden z największych i najbardziej rozwiniętych systemów rowerów współdzielonych w Polsce, obejmując ponad 600 aktywnych stacji, zlokalizowanych przede wszystkim na obszarze Trójmiasta. Jako integralny element miejskiej mobilności, system ten dostarcza bogatego zestawu danych operacyjnych, umożliwiających analizę rzeczywistych wzorców ruchu rowerowego w ujęciu przestrzennym i czasowym.
 
-W niniejszym raporcie przedstawiamy analizę przestrzenną efektywności stacji rowerowych MEVO w Trójmieście. Celem jest zbadanie, jak różne czynniki przestrzenne wpływają na liczbę wypożyczeń rowerów oraz identyfikacja potencjalnych obszarów do poprawy.
-
-### Struktura badania
+W niniejszym raporcie wykorzystano dane pochodzące z funkcjonowania systemu w latach 2024–2025 w celu przeprowadzenia analizy intensywności użytkowania stacji w zależności od ich lokalizacji i otoczenia przestrzennego. Punktem wyjścia jest założenie, że rozmieszczenie infrastruktury rowerowej w mieście, a także bliskość funkcji komplementarnych (takich jak transport publiczny czy obszary rekreacyjne), mają istotny wpływ na efektywność działania systemu.
 
 #### Sformułowanie problemu badawczego
 
+W obliczu rosnącej liczby samochodów osobowych oraz wynikających z tego problemów komunikacyjnych, zanieczyszczenia powietrza i ograniczonej przestrzeni publicznej, miasta muszą wdrażać efektywne rozwiązania transportu zrównoważonego. Rower miejski stanowi istotny element tej strategii, oferując szybki, ekologiczny i elastyczny sposób przemieszczania się na krótkich dystansach.
+
+System rowerów współdzielonych Mevo, jako jeden z największych tego typu systemów w Polsce, wymaga optymalizacji sieci stacji w celu maksymalizacji ich wykorzystania oraz efektywnego dostosowania do potrzeb użytkowników. Kluczowym wyzwaniem jest określenie lokalizacji o największym potencjale generowania ruchu oraz zrozumienie, które czynniki przestrzenne – takie jak gęstość stacji, dostęp do transportu publicznego czy bliskość terenów rekreacyjnych – warunkują sukces poszczególnych punktów.
+
+Niniejsze badanie pełni funkcję biznesowego case study, które poprzez zastosowanie zaawansowanych modeli ekonometrii przestrzennej pozwala precyzyjnie wskazać kluczowe determinanty popularności stacji oraz przestrzenne zależności między nimi. Wyniki analizy umożliwią rekomendacje dotyczące optymalizacji rozmieszczenia stacji i zarządzania systemem, co może przyczynić się do poprawy mobilności miejskiej oraz jakości życia mieszkańców Trójmiasta.
+
+### Cel projektu
+
+Celem projektu jest identyfikacja kluczowych determinantów przestrzennej popularności stacji rowerowych Mevo, rozumianej jako relatywna intensywność ich wykorzystania mierzona wskaźnikiem TTR (Total Turnover Rate). Analiza opiera się na metodach ekonometrii przestrzennej, pozwalających uchwycić zarówno wpływ cech lokalnych (np. gęstości stacji, odległości do przystanków lub plaż), jak i przestrzenne zależności pomiędzy stacjami (autokorelację oraz efekty spillover).
+
+Projekt zakłada empiryczne przetestowanie hipotez dotyczących mechanizmów rządzących dystrybucją ruchu w systemie rowerów współdzielonych, a jego wyniki mają charakter zarówno diagnostyczny, jak i rekomendacyjny. Ostatecznym celem analizy jest sformułowanie praktycznych wskazań dotyczących rozmieszczenia, planowania i zarządzania infrastrukturą rowerową w warunkach miejskich, z uwzględnieniem złożonego kontekstu przestrzennego.
+
 #### Przegląd literatury
 
-## Analiza danych
+Dobór literatury do niniejszego raportu został oparty na trzech kryteriach: (1) zgodności tematycznej z przedmiotem badania, tj. systemami rowerów współdzielonych i ich przestrzenną charakterystyką użytkowania; (2) zastosowaniu metod ekonometrii przestrzennej; oraz (3) istotności cytowań i wkładu danej pracy w rozwój wiedzy na temat efektów sąsiedztwa i spillover w transporcie miejskim. Uwzględniono zarówno klasyczne pozycje teoretyczne, jak i nowoczesne, empiryczne badania o charakterze aplikacyjnym.
+
+LeSage, J., & Pace, R. K. (2009). Introduction to Spatial Econometrics.
+
+Podstawowa publikacja przedstawiająca metodykę ekonometrii przestrzennej. Autorzy systematyzują modele przestrzenne, takie jak SAR (Spatial Autoregressive), SEM (Spatial Error Model) i SAC (Spatial Autocorrelation Model), omawiając ich zastosowanie w analizie danych przestrzennych. Praca stanowi fundament teoretyczny dla niniejszego badania, szczególnie w zakresie interpretacji autokorelacji i efektów przestrzennych λ.
+
+Zhao, J. et al. (2020). Spatial spillover effects in urban bike sharing systems.
+
+Empiryczne badanie systemu rowerowego w Chinach z wykorzystaniem modeli SAR. Autorzy dowodzą istnienia efektów spillover pomiędzy stacjami – użytkowanie jednej stacji wpływa na sąsiednie. Jest to bezpośrednie odniesienie do hipotezy H₄ niniejszego raportu i potwierdzenie zasadności uwzględniania przestrzennej zależności popytu.
+
+Faghih-Imani, A. et al. (2017). How land-use impacts bicycle flows.
+
+Badanie przeprowadzone na danych z systemu rowerowego w Nowym Jorku. Autorzy analizują wpływ zagospodarowania terenu (strefy mieszkaniowe, komercyjne, parki, transport) na przepływ rowerów. Kluczowe dla zrozumienia teorii efektów sieciowych w systemach współdzielonych i operacjonalizacji zmiennych przestrzennych – takich jak liczba przystanków komunikacji publicznej czy odległość od atrakcji miejskich.
+
+Dane operacyjne Mevo (2024–2025). Zestaw danych agregowanych.
+
+Główny zbiór danych empirycznych wykorzystanych w badaniu. Obejmuje 603 stacje w Trójmieście i zawiera informacje o liczbie wypożyczeń i zwrotów, pojemności stacji, lokalizacji oraz cechach otoczenia. Dane te zostały przekształcone do formatu panelowego i wykorzystane w estymacji modeli SAR/SEM dla identyfikacji kluczowych determinantów relatywnej popularności (TTR).
+
+#### Hipotezy badawcze
+
+Niniejszy raport zakłada cztery kluczowe hipotezy dotyczące czynników wpływających na przestrzenne zróżnicowanie popularności stacji systemu Mevo. Każda z nich odpowiada na pytanie: co decyduje o tym, że jedne stacje są bardziej obciążone ruchem niż inne? Formułując hipotezy, uwzględniono zarówno lokalne cechy stacji, jak i ich relacje z otoczeniem przestrzennym. H₁: Wyższa gęstość stacji w otoczeniu koreluje z wyższym TTR
+
+Zakłada się, że obecność większej liczby stacji w promieniu danego punktu zwiększa jego atrakcyjność użytkową. Efekt ten wynika z mechanizmów sieciowych – wyższa dostępność infrastruktury zwiększa użyteczność systemu jako całości i sprzyja intensywniejszemu wykorzystaniu poszczególnych stacji.
+
+H₂: Mniejsza odległość do plaży oraz przystanków transportu publicznego sprzyja wyższemu TTR
+
+Stacje położone bliżej miejsc o dużej funkcjonalności komunikacyjnej (przystanki autobusowe, kolej miejskiej) lub rekreacyjnej (plaże) generują większy ruch. Hipoteza ta odzwierciedla założenie, że rowery współdzielone pełnią funkcję transportu komplementarnego wobec innych form mobilności oraz infrastruktury miejskiej.
+
+H₃: Występuje istotna autokorelacja przestrzenna TTR
+
+Zakłada się, że wartości TTR w danej stacji są statystycznie powiązane z wartościami obserwowanymi w jej bezpośrednim sąsiedztwie. Wskazuje to na obecność przestrzennych wzorców użytkowania – popularność jednej stacji jest skorelowana z poziomem wykorzystania w stacjach pobliskich.
+
+H₄: Występują efekty spillover w przestrzennej dystrybucji TTR
+
+Zakłada się istnienie efektów rozprzestrzeniania (spillover), w ramach których natężenie ruchu w jednej stacji wpływa bezpośrednio na poziom wykorzystania stacji sąsiednich. Efekt ten odzwierciedla mechanizmy redystrybucji popytu, przestrzennej konkurencji lub kooperacji między punktami sieci systemu rowerowego.
+
+### Opis Zmiennych
+
+### **Zmienne źródłowe**
+
+1\. station_id - Unikalny identyfikator stacji
+
+2\. name - Nazwa stacji
+
+3\. lat, lon - Współrzędne geograficzne
+
+4\. capacity - Pojemność stacji (liczba rowerów)
+
+5\. points_of_interests - Liczba punktów zainteresowania w promieniu 100m
+
+6\. public_tansport - Liczba przystanków transportu publicznego w promieniu 100m
+
+7\. distance_to_beach_m - Odległość do plaży w metrach
+
+8\. rent_num - Całkowita liczba wypożyczeń
+
+9\. depo_num - Całkowita liczba zwrotów
+
+10\. morning_rent_num - Wypożyczenia w godz. 6:00–12:00
+
+11\. afternoon_rent_num - Wypożyczenia w godz. 12:00–16:00
+
+12\. evening_rent_num - Wypożyczenia w godz. 16:00–20:00
+
+13\. night_rent_num - Wypożyczenia w godz. 20:00–6:00
+
+14\. bilans - Różnica między zwrotami a wypożyczeniami
+
+#### **Zmienne obliczone**
+
+15\. turnover_rate_norm (TTR) - Suma wypożyczeń i zwrotów podzielona przez pojemność
+
+16\. density_500m - Liczba stacji w promieniu 500m
+
+17\. density_1000m - Liczba stacji w promieniu 1000m
+
+18\. density_2000m - Liczba stacji w promieniu 2000m
+
+19\. distance_to_center - Odległość do centrum Gdańska w metrach
+
+20\. morning_ratio - Udział wypożyczeń porannych w ogóle wypożyczeń
+
+21\. afternoon_ratio - Udział wypożyczeń popołudniowych w ogóle wypożyczeń
+
+22\. evening_ratio - Udział wypożyczeń wieczornych w ogóle wypożyczeń
+
+23\. night_ratio - Udział wypożyczeń nocnych w ogóle wypożyczeń
+
+24\. peak_ratio - Udział ruchu w godzinach szczytu
+
+25\. commuter_index - Stosunek wypożyczeń w godzinach dojazdów do pracy do pozostałych
+
+26\. peak_imbalance - Różnica między udziałem porannych i wieczornych wypożyczeń
+
+27\. peak_load_factor - Maksymalne obciążenie szczytowe względem pojemności
+
+#### **Zmienne przestrzenne**
+
+28\. W1, W2 - Macierze sąsiedztwa stacji
+
+29\. W1_norm, W2_norm -Znormalizowane macierze wag przestrzennych
+
+#### **Statystyki modeli**
+
+30\. ρ (rho) - Parametr autoregresji przestrzennej
+
+31\. λ (lambda) - Parametr błędów przestrzennych
+
+32\. Moran_I - Statystyka testu autokorelacji przestrzennej
+
+### Struktura badania
+
+ \## Analiza danych
 
 ```{r libraries, message=TRUE, include=FALSE}
 required_packages <- c(
@@ -364,10 +488,10 @@ Plaże w Brzeźnie, Sopocie i Gdyni oraz węzły komunikacyjne (np. dworce kolej
 
 ***Przyczyny nierównowagi***
 
-- Wahadłowy ruch między dzielnicami mieszkaniowymi a biurowymi oraz jednokierunkowe trasy turystyczne.
-- Brak wystarczającej liczby stacji i miejsc postojowych w obszarach o wysokim popycie.
-- Użytkownicy nie są motywowani do zwrotu rowerów w miejscach, gdzie są one najbardziej potrzebne.
-- Wzmożony ruch turystyczny latem nasila problemy z dystrybucją rowerów.
+-   Wahadłowy ruch między dzielnicami mieszkaniowymi a biurowymi oraz jednokierunkowe trasy turystyczne.
+-   Brak wystarczającej liczby stacji i miejsc postojowych w obszarach o wysokim popycie.
+-   Użytkownicy nie są motywowani do zwrotu rowerów w miejscach, gdzie są one najbardziej potrzebne.
+-   Wzmożony ruch turystyczny latem nasila problemy z dystrybucją rowerów.
 
 #### Dostępność do plaży
 
@@ -463,13 +587,13 @@ mapa_transport
 
 Liczba przystanków komunikacji publicznej w promieniu 100m od stacji MEVO:
 
-1. 0-1
+1.  0-1
 
-2. 1-3
+2.  1-3
 
-3. 3-5
+3.  3-5
 
-4. 5-14
+4.  5-14
 
 Optymalna integracja (3-5 przystanków): Obserwowana w głównych węzłach komunikacyjnychq, gdzie stacje MEVO są zlokalizowane w pobliżu przystanków autobusowych i tramwajowych. Taka lokalizacja sprzyja codziennym dojazdom do pracy lub szkoły, co zwiększa wykorzystanie rowerów.
 
@@ -600,7 +724,7 @@ W2_norm <- W2 / rowSums(W2)
 W2_norm[is.na(W2_norm)] <- 0
 ```
 
-Próg sąsiedztwa: 2000 metrów (2 km). Stacje w tej odległości uznawane są za bezpośrednich sąsiadów.  Macierz sąsiedztwa 1. rzędu jest binarna, gdzie 1 oznacza bezpośrednie sąsiedztwo (odległość ≤ 2 km), a 0 brak połączenia. Macierz sąsiedztwa 2. rzędu jest również binarna, ale uwzględnia sąsiedztwo pośrednie (stacje sąsiadujące z sąsiadami). Macierze te są przydatne w analizach przestrzennych, takich jak testy autokorelacji przestrzennej (np. Moran's I) oraz w modelowaniu ekonometrycznym z uwzględnieniem efektów przestrzennych.
+Próg sąsiedztwa: 2000 metrów (2 km). Stacje w tej odległości uznawane są za bezpośrednich sąsiadów. Macierz sąsiedztwa 1. rzędu jest binarna, gdzie 1 oznacza bezpośrednie sąsiedztwo (odległość ≤ 2 km), a 0 brak połączenia. Macierz sąsiedztwa 2. rzędu jest również binarna, ale uwzględnia sąsiedztwo pośrednie (stacje sąsiadujące z sąsiadami). Macierze te są przydatne w analizach przestrzennych, takich jak testy autokorelacji przestrzennej (np. Moran's I) oraz w modelowaniu ekonometrycznym z uwzględnieniem efektów przestrzennych.
 
 #### Analiza autokorelacji przestrzennej
 
@@ -678,9 +802,9 @@ if(length(moran_results) > 0) {
 
 ```
 
-Przyjęto 5 najbliższych sąsiadów (k-nearest neighbors) dla każdej stacji, z wagami znormalizowanymi tak, aby suma w każdym wierszu wynosiła 1 (style = "W"). 
+Przyjęto 5 najbliższych sąsiadów (k-nearest neighbors) dla każdej stacji, z wagami znormalizowanymi tak, aby suma w każdym wierszu wynosiła 1 (style = "W").
 
-Dla każdej zmiennej obliczono statystykę Moran’a I. Wszystkie analizowane zmienne wykazują silną dodatnią autokorelację przestrzenną (Moran_I > 0, p-value = 0), co oznacza, że wartości tych zmiennych grupują się geograficznie. Nie ma ani jednej zmiennej o rozkładzie losowym lub negatywnej autokorelacji.
+Dla każdej zmiennej obliczono statystykę Moran’a I. Wszystkie analizowane zmienne wykazują silną dodatnią autokorelację przestrzenną (Moran_I \> 0, p-value = 0), co oznacza, że wartości tych zmiennych grupują się geograficznie. Nie ma ani jednej zmiennej o rozkładzie losowym lub negatywnej autokorelacji.
 
 Wyniki jednoznacznie potwierdzają, że przestrzeń jest kluczowym czynnikiem różnicującym działanie systemu MEVO. Znajomość tych wzorców pozwoli na lepsze planowanie rozwoju systemu, efektywniejsze zarządzanie flotą, dostosowanie oferty do lokalnych potrzeb.
 
@@ -733,7 +857,6 @@ if(any(missing_counts > 0)) {
   print(missing_counts[missing_counts > 0])
 }
 ```
-
 
 ```{r}
 # Create correlation matrix for key variables
@@ -826,6 +949,7 @@ knitr::kable(
 )
 
 ```
+
 Analiza opisowa zmiennych dodanych do modelu.
 
 ### Klasyczny Model Liniowy
@@ -1059,13 +1183,12 @@ kable(fit_stats,
     -   Współczynnik Rho (ρ = 0,3747, p \< 0,0001) jest istotny statystycznie, co oznacza, że występuje silna zależność przestrzenna – wartość zmiennej zależnej w jednej lokalizacji wpływa na wartości w sąsiednich obszarach.
     -   Testy LR (p = 2,87e-10) i Wald (p = 1,27e-12) potwierdzają, że model z efektem przestrzennym jest lepszy niż zwykła regresja liniowa (OLS).
 2.  Znaczące zmienne objaśniające:
-    -   Gęstość stacji rowerowych w promieniu 2000 metrów Dodatni wpływ (7.1167 ± 1,55, p \< 0,0001) – im większa gęstość, tym wyższa wartość wskaźnika rotacji stacji. Każdy wzrost gęstości zabudowy o 1 jednostkę w sąsiedztwie (2000m) wiąże się ze wzrostem lokalnego wskaźnika o ~7.12 jednostek.
-    -   Każdy dodatkowy metr od plaży zmniejsza wskaźnik o 0.0535 jednostki (np. 100m dalej → spadek o ~5.35 jednostek). Silny efekt negatywny (p<0.001) → lokalizacja nadmorska jest czynnikiem kluczowym.
-    - Obecność transportu publicznego podnosi wskaźnik o ~92.62 jednostek w porównaniu do lokalizacji bez transportu. Najsilniejszy wpływ spośród wszystkich zmiennych → infrastruktura transportowa jest głównym motorem analizowanego zjawiska.
+    -   Gęstość stacji rowerowych w promieniu 2000 metrów Dodatni wpływ (7.1167 ± 1,55, p \< 0,0001) – im większa gęstość, tym wyższa wartość wskaźnika rotacji stacji. Każdy wzrost gęstości zabudowy o 1 jednostkę w sąsiedztwie (2000m) wiąże się ze wzrostem lokalnego wskaźnika o \~7.12 jednostek.
+    -   Każdy dodatkowy metr od plaży zmniejsza wskaźnik o 0.0535 jednostki (np. 100m dalej → spadek o \~5.35 jednostek). Silny efekt negatywny (p\<0.001) → lokalizacja nadmorska jest czynnikiem kluczowym.
+    -   Obecność transportu publicznego podnosi wskaźnik o \~92.62 jednostek w porównaniu do lokalizacji bez transportu. Najsilniejszy wpływ spośród wszystkich zmiennych → infrastruktura transportowa jest głównym motorem analizowanego zjawiska.
 3.  Jakość modelu:
     -   AIC jest niższy (9791.9) niż w modelu liniowym (9829.3) → model przestrzenny lepiej dopasowany.
-    -   Brak autokorelacji reszt (LR test p < 0,001) → model dobrze uchwycił strukturę przestrzenną.
-
+    -   Brak autokorelacji reszt (LR test p \< 0,001) → model dobrze uchwycił strukturę przestrzenną.
 
 ### Kompleksowe porównanie modeli
 
@@ -1111,7 +1234,6 @@ modelsummary(models,
 
 ```
 
-
 ## Wnioski i rekomendacje
 
 Model potwierdza *silne zależności przestrzenne* i wskazuje kluczowe czynniki (gęstość, odległość od plaży, transport).
@@ -1122,10 +1244,9 @@ Nierównowaga w bilansie wypożyczeń rowerów w Trójmieście wynika z kombinac
 
 Dane wskazują, że system MEVO jest strategicznie rozmieszczony, aby służyć zarówno turystom, jak i mieszkańcom, ułatwiając dostęp do plaż i terenów rekreacyjnych. System stanowi wartościowe uzupełnienie transportu publicznego w regionie, jednak wymaga ukierunkowanych działań optymalizacyjnych dla pełniejszej integracji obu systemów transportowych.
 
-
 ### Wnioski końcowe
 
-Wyniki analizy wskazują na istotne efekty przestrzenne w systemie rowerów miejskich MEVO, co potwierdzają  modele przestrzenne. Najważniejsze czynniki wpływające na wskaźnik rotacji stacji to gęstość stacji w pobliżu,  dostępność transportu publicznego (silne dodatnie wpływy) oraz odległość do plaży (działa negatywnie, ale z mniejszą siłą). Wszystkie zmienne są skrajnie istotne (p<0.001), co potwierdza trafność doboru predyktorów, wysokie wartości z-value (>4.5) wskazują na dużą precyzję oszacowań. Tabela jednoznacznie pokazuje, że czynniki przestrzenne są kluczowe w wyjaśnianiu zróżnicowania analizowanego zjawiska.
+Wyniki analizy wskazują na istotne efekty przestrzenne w systemie rowerów miejskich MEVO, co potwierdzają modele przestrzenne. Najważniejsze czynniki wpływające na wskaźnik rotacji stacji to gęstość stacji w pobliżu, dostępność transportu publicznego (silne dodatnie wpływy) oraz odległość do plaży (działa negatywnie, ale z mniejszą siłą). Wszystkie zmienne są skrajnie istotne (p\<0.001), co potwierdza trafność doboru predyktorów, wysokie wartości z-value (\>4.5) wskazują na dużą precyzję oszacowań. Tabela jednoznacznie pokazuje, że czynniki przestrzenne są kluczowe w wyjaśnianiu zróżnicowania analizowanego zjawiska.
 
 ### Rekomendacje
 
