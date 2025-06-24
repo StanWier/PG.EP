@@ -1,20 +1,22 @@
 ---
 title: "Analiza efektywności stacji rowerowych MEVO"
 author: "Michał Łochowski, Nazar Ostrowski, Norbert Gała, Stanisław Kochnowski"
-date: "2025-04-22"
+date: "`r Sys.Date()`"
 output:
-  pdf_document:
-    toc: true
   html_document: 
     toc: true
+    css: style.css
     theme: sandstone
     fig_width: 10
     fig_height: 10
     fig_caption: true
+  pdf_document:
+    toc: true
 ---
+*Repozytorium*: [github.com/StanWier/PG.EP](https://github.com/StanWier/PG.EP) 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ## Wstęp
@@ -36,6 +38,7 @@ required_packages <- c(
   "osmdata",      # dane OpenStreetMap
   "sf",           # obsługa danych przestrzennych
   "dplyr",        # manipulacja danymi
+  "summarytools", # podsumowanie danych
   "ggplot2",      # wizualizacja danych
   "ggspatial",    # wizualizacja danych przestrzennych
   "httr",         # HTTP requests
@@ -66,7 +69,7 @@ for (pkg in required_packages) {
 
 ### Pobieranie i ładowanie danych
 
-Wykorzystamy dane z API MEVO, które zawiera informacje o stacjach rowerowych, ich statusie oraz lokalizacji. W tym celu użyjemy pakietów `httr` i `jsonlite` do pobrania i przetworzenia danych.
+Dane dotyczące stacji rowerowych, ich statusu oraz lokalizacji mogą zostać pobrane bezpośrednio z API MEVO z wykorzystaniem pakietów httr oraz jsonlite, które umożliwiają pobieranie i przetwarzanie danych w formacie JSON. W naszym przypadku jednak skorzystaliśmy z gotowego zbioru danych otrzymanego bezpośrednio od przedstawicieli MEVO. W dalszej analizie posługujemy się tym zbiorem po dokonaniu odpowiednich przekształceń, które ułatwiają kolejne etapy przetwarzania i eksploracji danych.
 
 ```{r eval=FALSE, include=FALSE}
 # Pobranie danych o stacjach MEVO
@@ -78,9 +81,9 @@ status_url <- "https://gbfs.urbansharing.com/rowermevo.pl/station_status.json"
 status <- fromJSON(content(GET(status_url), "text"))$data$stations
 ```
 
-Wczytamy przetworzone dane z pliku CSV, który zawiera informacje o stacjach rowerowych MEVO, ich lokalizacji oraz liczbie wypożyczeń. Te dane uzyskaliśmy wcześniej z API MEVO i przetworzyliśmy na format odpowiedni do analizy przestrzennej.
+Wczytamy przetworzone dane z pliku CSV, który zawiera informacje o stacjach rowerowych MEVO.
 
-```{r data import}
+```{r data import, echo=FALSE}
 data <- read.csv("./Data/Processed data/data_mevo.csv", 
                  header = TRUE, sep = ",", stringsAsFactors = FALSE)
 kable(data) %>%
@@ -90,11 +93,20 @@ kable(data) %>%
 
 ### Analiza opisowa
 
-TODO: Jakieś wykresy czy summary
+Dane wykorzystane w analizie pochodzą z systemu rowerów miejskich MEVO i obejmują 744 stacje rowerowe zlokalizowane na obszarze Trójmiasta. Każda obserwacja w zbiorze odpowiada jednej stacji i zawiera informacje zarówno o jej położeniu geograficznym, jak i o intensywności korzystania z niej przez użytkowników systemu.
 
-```{r}
-datasummary_skim(data)
+```{r echo=FALSE}
+datasummary_skim(data %>% select(-nearest_beach, -name, -address))
+
+freq_df <- as.data.frame(freq(data$nearest_beach, plain.ascii = FALSE, style = "rmarkdown"))
+freq_df_subset <- freq_df[, c("Freq", "% Total")]
+
+kable(freq_df_subset) %>%
+  kable_styling() %>%
+  scroll_box(height = "300px")
 ```
+
+Wszystkie obserwacje są kompletne – zbiór nie zawiera brakujących wartości, co pozwala na przeprowadzenie pełnej analizy bez potrzeby imputacji danych. Dane mają różnorodne typy: zmienne ciągłe (np. odległość do plaży), zmienne liczbowe całkowite (np. pojemność, liczba wypożyczeń), zmienne logiczne (czy stacja jest wirtualna), oraz zmienne tekstowe (nazwy i adresy).
 
 ### Czyszczenie i przygotowanie danych
 
@@ -108,7 +120,7 @@ data <- data[grepl("GDA|GDY|SOP|RUM|RED", data$name, ignore.case = TRUE), ]
 
 W tej sekcji dodamy nowe zmienne do naszego zbioru danych, które będą przydatne w dalszej analizie przestrzennej. Obliczymy dystans do najbliższej plaży, liczbę punktów transportu publicznego w pobliżu stacji oraz inne wskaźniki związane z aktywnością rowerową.
 
-```{r data processing}
+```{r data processing, echo=FALSE}
 
 # 1. Normalized usage rates (capacity-adjusted for fair comparison)
 # These variables account for different station sizes
@@ -189,8 +201,7 @@ if("capacity" %in% colnames(data)) {
 
 ```
 
-```{r}
-print("New variables created:")
+```{r echo=FALSE}
 new_vars <- c("rent_rate", "depo_rate", "turnover_rate_norm", "net_demand_rate",
               "morning_ratio", "afternoon_ratio", "evening_ratio", "night_ratio",
               "peak_ratio", "commuter_index", "peak_imbalance", "peak_load_factor",
@@ -198,12 +209,89 @@ new_vars <- c("rent_rate", "depo_rate", "turnover_rate_norm", "net_demand_rate",
               "capacity_utilization", "efficiency_score")
 
 existing_new_vars <- new_vars[new_vars %in% colnames(data)]
-print(existing_new_vars)
+descriptions <- c(
+  "Rental intensity per bike slot",
+  "Return intensity per bike slot",
+  "Total activity per capacity",
+  "Net flow per capacity",
+  "Morning rental ratio",
+  "Afternoon rental ratio",
+  "Evening rental ratio",
+  "Night rental ratio",
+  "Peak rental ratio (commuter behavior)",
+  "Commuter index (peak vs off-peak)",
+  "Peak imbalance (directional flow)",
+  "Peak load factor (capacity stress)",
+  "Station density within 500m",
+  "Station density within 1000m",
+  "Station density within 2000m",
+  "Distance to city center (urban centrality)",
+  "Capacity utilization rate",
+  "Overall station efficiency score"
+)
+
+df_vars <- data.frame(
+  Variable = existing_new_vars,
+  Description = descriptions[match(existing_new_vars, new_vars)],
+  stringsAsFactors = FALSE
+)
+
+kable(df_vars, caption = "New variables created for spatial analysis") %>%
+  kable_styling(full_width = F) %>%
+  scroll_box(height = "300px")
 ```
 
-Analiza łącznej aktywności względem pojemności pozwala ocenić wykorzystanie stacji MEVO niezależnie od jej wielkości.
+***Podstawowe wskaźniki aktywności stacji***
 
-## Interaktywne mapy do eksploracyjnej analizy przestrzennej
+-   **rent_rate** - Intensywność wypożyczeń na jedno miejsce postojowe. Określa, jak często rowery są wypożyczane z danej stacji w przeliczeniu na dostępne miejsca.
+
+-   **depo_rate** - Intensywność zwrotów na jedno miejsce postojowe. Pokazuje częstotliwość oddawania rowerów na stację w stosunku do jej pojemności.
+
+-   **turnover_rate_norm** - Całkowita aktywność stacji (wypożyczenia + zwroty) znormalizowana przez pojemność stacji. Wskaźnik ogólnego wykorzystania stacji.
+
+-   **net_demand_rate** - Wskaźnik netto przepływu rowerów (różnica między wypożyczeniami a zwrotami) na pojemność stacji. Dodatnie wartości wskazują na przewagę wypożyczeń, ujemne na przewagę zwrotów.
+
+***Wskaźniki czasowe użytkowania***
+
+-   **morning_ratio** - Procent wypożyczeń przypadających na poranne godziny (zwykle godziny szczytu porannego).
+
+-   **afternoon_ratio** - Procent wypożyczeń przypadających na popołudniowe godziny (zwykle godziny szczytu popołudniowego).
+
+-   **evening_ratio** - Procent wypożyczeń przypadających na wieczorne godziny.
+
+-   **night_ratio** - Procent wypożyczeń przypadających na nocne godziny.
+
+-   **peak_ratio** - Wskaźnik zachowań dojazdowych, pokazujący proporcję wypożyczeń w godzinach szczytu (porannym i popołudniowym) do całkowitej liczby wypożyczeń.
+
+***Wskaźniki mobilności i zachowań użytkowników***
+
+-   **commuter_index** - Indeks dojazdowy, porównujący aktywność w godzinach szczytu do aktywności poza szczytem. Wysokie wartości wskazują na stacje używane głównie w celach dojazdowych.
+
+-   **peak_imbalance** - Nierównowaga szczytowa, pokazująca różnicę w przepływach kierunkowych (wypożyczenia vs zwroty) w godzinach szczytu.
+
+-   **peak_load_factor** - Współczynnik obciążenia szczytowego, mierzący stres pojemnościowy stacji w godzinach największego ruchu.
+
+***Wskaźniki przestrzenne i lokalizacyjne***
+
+-   **density_500m** - Gęstość stacji w promieniu 500 metrów. Określa zagęszczenie infrastruktury rowerowej w najbliższym sąsiedztwie.
+
+-   **density_1000m** - Gęstość stacji w promieniu 1000 metrów.
+
+-   **density_2000m** - Gęstość stacji w promieniu 2000 metrów.
+
+-   **distance_to_center** - Odległość do centrum miasta. Wskaźnik centralności lokalizacji stacji w strukturze urbanistycznej.
+
+***Wskaźniki efektywności***
+
+-   **capacity_utilization** - Stopień wykorzystania pojemności stacji. Pokazuje, jak efektywnie wykorzystywana jest dostępna infrastruktura.
+
+-   **efficiency_score** - Złożony wskaźnik efektywności stacji, łączący różne aspekty funkcjonowania stacji w jedną miarę oceny.
+
+Te zmienne pozwalają na kompleksową analizę funkcjonowania systemu wypożyczalni rowerów, uwzględniającą zarówno aspekty czasowe użytkowania, jak i charakterystykę przestrzenną oraz efektywność poszczególnych stacji.
+
+### Eksploracyjna analiza przestrzenna
+
+Przekształcenie ramki danych zawierającej informacje o stacjach rowerowych w obiekt przestrzenny, który można wykorzystać do analiz i wizualizacji geograficznych.
 
 ```{r}
 # Convert to sf object for spatial mapping
@@ -215,12 +303,14 @@ stacje <- mevo_data
 
 ```
 
+#### Bilans wypożyczeń
+
 ```{r}
 # Map 1: Station Balance Analysis (demand vs supply patterns)
 mapa_bilans <- leaflet(stacje) %>%
   addTiles() %>%
   addCircleMarkers(
-    radius = 6,
+    radius = 8,
     # Color scheme: green = net positive demand, red = net negative
     color = ~colorBin(palette = "RdYlGn", 
                       domain = bilans, 
@@ -248,13 +338,46 @@ mapa_bilans <- leaflet(stacje) %>%
 mapa_bilans
 ```
 
+Przedziały salda:
+
+-∞ do -750: Silny nadmiar zwrotów (rowery gromadzą się w tych lokalizacjach).
+
+-750 do 0: Umiarkowany nadmiar zwrotów.
+
+0 do 750: Umiarkowany nadmiar wypożyczeń.
+
+750 do 1,000: Wysoki nadmiar wypożyczeń (rowery są stąd wywożone).
+
+1,000 do ∞: Bardzo wysoki nadmiar wypożyczeń.
+
+Dane wskazują na istotne dysproporcje w dystrybucji rowerów, które wpływają na efektywność systemu oraz satysfakcję użytkowników.
+
+***Obszary krytyczne i ich charakterystyka***
+
+*Obszary o ujemnym bilansie (nagromadzenie rowerów)*
+
+W dzielnicach takich jak Oliwa, Wrzeszcz, Morena oraz na plażach granicy Sopotu i Gdańska obserwuje się znacząco ujemny bilans wypożyczeń. W przypadku dzielnic biurowych (Oliwa, Wrzeszcz) rowery są masowo zwracane wieczorami po godzinach pracy, co prowadzi do przepełnienia stacji. W dzielnicach mieszkaniowych o wysokiej gęstości zaludnienia (np. Morena) brakuje miejsc do zwrotu, co generuje frustrację użytkowników. Plaże na granicy Sopotu i Gdańska są z kolei punktami docelowymi dla turystów, którzy często nie wracają rowerami do centrum, pozostawiając je w tych lokalizacjach.
+
+*Obszary o dodatnim bilansie (niedobór rowerów)*
+
+Plaże w Brzeźnie, Sopocie i Gdyni oraz węzły komunikacyjne (np. dworce kolejowe) charakteryzują się dodatnim bilansem wypożyczeń. Rowery są tu często wypożyczane, ale rzadko zwracane, co prowadzi do pustych stacji i utrudnia dostępność dla nowych użytkowników. W przypadku plaż jest to szczególnie widoczne w sezonie letnim, gdy ruch turystyczny jest najintensywniejszy.
+
+***Przyczyny nierównowagi***
+
+- Wahadłowy ruch między dzielnicami mieszkaniowymi a biurowymi oraz jednokierunkowe trasy turystyczne.
+- Brak wystarczającej liczby stacji i miejsc postojowych w obszarach o wysokim popycie.
+- Użytkownicy nie są motywowani do zwrotu rowerów w miejscach, gdzie są one najbardziej potrzebne.
+- Wzmożony ruch turystyczny latem nasila problemy z dystrybucją rowerów.
+
+#### Dostępność do plaży
+
 ```{r}
 # Map 2: Beach Accessibility Analysis – the problem here is that Only Gdańsk/Gdynia beaches have the right data, I'd remove the smaller towns as irrelevant
 # this should improve our models
 mapa_plaza <- leaflet(stacje) %>%
   addTiles() %>%
   addCircleMarkers(
-    radius = 6,
+    radius = 8,
     # Gradient from green (close to beach) to red (far from beach)
     color = ~colorQuantile("RdYlGn", distance_to_beach_m)(distance_to_beach_m),
     fillOpacity = 0.9,
@@ -278,6 +401,20 @@ mapa_plaza <- leaflet(stacje) %>%
 mapa_plaza
 ```
 
+Odległość od plaży:
+
+0% – 25%: Stacje zlokalizowane bezpośrednio przy plażach, co jest idealne dla turystów chcących szybko dotrzeć nad morze.
+
+25% – 50%: Stacje w niewielkiej odległości od plaż, np. w centrach miast lub przy głównych szlakach komunikacyjnych.
+
+50% – 75%: Stacje oddalone od plaż, ale wciąż w zasięgu krótkiej przejażdżki rowerowej.
+
+75% – 100%: Stacje znacznie oddalone od plaż, prawdopodobnie służące głównie do codziennych dojazdów, a nie rekreacji.
+
+Dalsze działania powinny skupić się na optymalizacji liczby stacji i rowerów w obszarach o największym natężeniu ruchu, szczególnie w sezonie letnim. Włączenie do systemu tras przez obszary chronione dodatkowo podnosi jego wartość ekologiczną i rekreacyjną.
+
+#### Dostępność transportu publicznego
+
 ```{r}
 # Map 3: Public Transport Access
 
@@ -299,7 +436,7 @@ color_bin_func_4 <- leaflet::colorBin(
 mapa_transport <- leaflet(stacje) %>%
   addTiles() %>%
   addCircleMarkers(
-    radius = 6,
+    radius = 8,
     # Apply the custom colorBin function for 4 bins
     color = ~color_bin_func_4(public_tansport),
     fillOpacity = 0.8,
@@ -323,6 +460,26 @@ mapa_transport <- leaflet(stacje) %>%
 # Display transport map
 mapa_transport
 ```
+
+Liczba przystanków komunikacji publicznej w promieniu 100m od stacji MEVO:
+
+1. 0-1
+
+2. 1-3
+
+3. 3-5
+
+4. 5-14
+
+Optymalna integracja (3-5 przystanków): Obserwowana w głównych węzłach komunikacyjnychq, gdzie stacje MEVO są zlokalizowane w pobliżu przystanków autobusowych i tramwajowych. Taka lokalizacja sprzyja codziennym dojazdom do pracy lub szkoły, co zwiększa wykorzystanie rowerów.
+
+Wysoka integracja (5-14 przystanków): Prawdopodobnie w centrach miast lub przy głównych dworcach kolejowych, gdzie stacje MEVO są częścią większego systemu transportowego. W takich lokalizacjach rowery mogą być wykorzystywane zarówno do dojazdów, jak i rekreacji.
+
+Niska integracja (0-1 przystanek): Występuje głównie w obszarach mieszkalnych lub na obrzeżach miast, gdzie dostęp do transportu publicznego jest ograniczony. Stacje te mogą być mniej wykorzystywane, ponieważ użytkownicy preferują korzystanie z samochodów lub innych środków transportu.
+
+Stacje zlokalizowane w pobliżu przystanków komunikacji publicznej mają większy potencjał do obsługi codziennych dojazdów, co może zwiększyć ich wykorzystanie. Warto jednak zauważyć, że sama bliskość do transportu publicznego nie gwarantuje wysokiego poziomu wypożyczeń – kluczowe są również inne czynniki, takie jak dostępność infrastruktury rowerowej czy atrakcyjność lokalizacji.
+
+#### Znormalizowany wskaźnik rotacji
 
 ```{r}
 # Map 4: Normalized Turnover Rate (efficiency visualization)
@@ -389,7 +546,23 @@ if("turnover_rate_norm" %in% colnames(data)) {
 }
 ```
 
+Znormalizowany wskaźnik rotacji przedstawia intensywność wykorzystania rowerów w poszczególnych stacjach, wyrażony w procentach i podzielony na cztery przedziały:
+
+0-25% (niska rotacja - kolor czerwony)
+
+25-50%
+
+50-75%
+
+75-100% (wysoka rotacja - kolor zielony)
+
+Stacje o niskiej rotacji (0-25%) to te, które są rzadko wykorzystywane, co może sugerować problemy z dostępnością rowerów lub niewystarczającą liczbę stacji w danym obszarze. Obrzeża miast, obszary o niskim natężeniu ruchu rowerowego stanowią tę kategorię.
+
+Stacje o wysokiej rotacji (75-100%) to te, które są intensywnie wykorzystywane, co może wskazywać na ich popularność i dobrą lokalizację. Wśród nich są centra miast, węzły komunikacyjne oraz obszary o dużym natężeniu ruchu rowerowego.
+
 #### Macierz wag przestrzennych
+
+Macierz wag przestrzennych utworzona przy użyciu funkcji distm z metodą distHaversine służy do obliczania odległości geograficznych między stacjami rowerowymi MEVO z uwzględnieniem krzywizny Ziemi. Jest szczególnie przydatna w analizach GIS oraz modelowaniu przestrzennego zasięgu systemu.
 
 ```{r}
 # Prepare coordinate matrix for spatial analysis
@@ -400,7 +573,7 @@ station_names <- data$name
 distances <- distm(coords, fun = distHaversine)
 
 # Set threshold distance for neighborhood definition
-threshold <- 5000  # 5km threshold for spatial connectivity
+threshold <- 2000  # 2km threshold for spatial connectivity
 
 # Create 1st order neighborhood matrix (direct neighbors)
 W1 <- (distances <= threshold) * 1  # Binary connectivity matrix
@@ -425,19 +598,15 @@ W1_norm[is.na(W1_norm)] <- 0  # Handle stations with no neighbors
 
 W2_norm <- W2 / rowSums(W2)
 W2_norm[is.na(W2_norm)] <- 0
-
-# # Display sample of matrices
-# cat("1st order neighborhood matrix (first 5x5):\n")
-# print(W1[1:5, 1:5])
-# 
-# cat("\n2nd order neighborhood matrix (first 5x5):\n")
-# print(W2[1:5, 1:5])
-
 ```
+
+Próg sąsiedztwa: 2000 metrów (2 km). Stacje w tej odległości uznawane są za bezpośrednich sąsiadów.  Macierz sąsiedztwa 1. rzędu jest binarna, gdzie 1 oznacza bezpośrednie sąsiedztwo (odległość ≤ 2 km), a 0 brak połączenia. Macierz sąsiedztwa 2. rzędu jest również binarna, ale uwzględnia sąsiedztwo pośrednie (stacje sąsiadujące z sąsiadami). Macierze te są przydatne w analizach przestrzennych, takich jak testy autokorelacji przestrzennej (np. Moran's I) oraz w modelowaniu ekonometrycznym z uwzględnieniem efektów przestrzennych.
 
 #### Analiza autokorelacji przestrzennej
 
-```{r}
+Test Morana I został zastosowany w celu identyfikacji wzorców przestrzennych w danych stacji MEVO. Analiza sprawdza, czy wartości wybranych zmiennych (np. bilans wypożyczeń, wskaźnik rotacji) wykazują podobieństwo w sąsiadujących lokalizacjach.
+
+```{r warning=FALSE}
 # Define variables to test for spatial clustering
 spatial_vars <- c("bilans", "turnover_rate_norm", "peak_ratio", "commuter_index", 
                   "density_500m", "density_1000m", "density_2000m", "efficiency_score", "distance_to_center")
@@ -500,11 +669,20 @@ if(length(moran_results) > 0) {
     )
   }))
   
-  moran_summary
+  # with knitr::kable
+  knitr::kable(moran_summary, caption = "Moran's I Summary", row.names = FALSE) %>%
+    kableExtra::kable_styling(full_width = F) %>%
+    kableExtra::scroll_box(height = "300px")
 
 }
 
 ```
+
+Przyjęto 5 najbliższych sąsiadów (k-nearest neighbors) dla każdej stacji, z wagami znormalizowanymi tak, aby suma w każdym wierszu wynosiła 1 (style = "W"). 
+
+Dla każdej zmiennej obliczono statystykę Moran’a I. Wszystkie analizowane zmienne wykazują silną dodatnią autokorelację przestrzenną (Moran_I > 0, p-value = 0), co oznacza, że wartości tych zmiennych grupują się geograficznie. Nie ma ani jednej zmiennej o rozkładzie losowym lub negatywnej autokorelacji.
+
+Wyniki jednoznacznie potwierdzają, że przestrzeń jest kluczowym czynnikiem różnicującym działanie systemu MEVO. Znajomość tych wzorców pozwoli na lepsze planowanie rozwoju systemu, efektywniejsze zarządzanie flotą, dostosowanie oferty do lokalnych potrzeb.
 
 ```{r}
 variable <- data$turnover_rate_norm  # Example variable for visualization
@@ -513,17 +691,29 @@ moran.plot(variable, listw,
            ylab = "Spatial Lag",
            main = "Moran's I Scatterplot") 
 
+set.seed(123)
+moran_mc <- moran.mc(variable, listw, nsim = 999, zero.policy = TRUE)
+
+moran_results <- data.frame(
+  "Moran's I" = moran_mc$statistic,
+  "P-value" = moran_mc$p.value,
+  "Simulations" = length(moran_mc$res),
+  check.names = FALSE
+)
+
+# Display formatted results
+knitr::kable(
+  moran_results,
+  caption = "Monte Carlo Moran's I Test Results",
+  digits = 4,
+  align = 'c',
+  row.names = FALSE
+)
+# plot(moran_mc, main = "Rozkład Moran's I obrotu stacji rowerów miejskich")
+
 ```
 
 Wykres rozrzutu Moran's I potwierdza silną dodatnią autokorelację przestrzenną (I = 0,336) w przypadku wskaźników obrotów stacji rowerów miejskich, pokazując, że stacje o wysokiej wydajności grupują się geograficznie i tworzą efekty przepływu na swoje sąsiedztwo. Wyraźny trend wzrostowy oraz wyraźnie widoczne kwadranty ujawniają, że wyniki stacji nie są niezależne - stacje odnoszące sukcesy zazwyczaj są otoczone przez inne udane stacje. Potwierdza to zasadność stosowania przestrzennych modeli ekonometrycznych i wskazuje na istotne efekty sieciowe w systemie rowerów miejskich.
-
-```{r}
-set.seed(123)
-moran_mc_result <- moran.mc(variable, listw, nsim = 999)
-moran_mc_result
-# TODO: design 
-plot(moran_mc_result, main = "Rozkład Moran's I w symulacjach MC")
-```
 
 ## Modelowanie ekonometryczne
 
@@ -544,6 +734,7 @@ if(any(missing_counts > 0)) {
 }
 ```
 
+
 ```{r}
 # Create correlation matrix for key variables
 if(exists("moran_summary")) {
@@ -555,9 +746,9 @@ if(exists("moran_summary")) {
     if(length(cor_vars) > 1) {
       cor_matrix <- cor(analysis_data[cor_vars], use = "complete.obs")
 
-      round(cor_matrix, 3) %>%
-        kable("html", caption = "Correlation Matrix") %>%
-        kable_styling(full_width = F)
+      # round(cor_matrix, 3) %>%
+      #   kable("html", caption = "Correlation Matrix") %>%
+      #   kable_styling(full_width = F)
     }
   }
 }
@@ -580,6 +771,8 @@ if(exists("cor_matrix")) {
 
 ```
 
+Macierz przedstawia współczynniki korelacji Pearsona między wybranymi zmiennymi opisującymi system rowerowy. Wartości bliskie 1 lub -1 wskazują na silną korelację, podczas gdy wartości bliskie 0 sugerują brak związku. Korelacja midzy zmiennymi jest dość nizka, co sugeruje, że zmienne te mogą dostarczać unikalnych informacji o funkcjonowaniu stacji rowerowych (brak silnej współliniowości). Najsilniejsza korelacja występuje między wskaźnikiem rotacji a gęstością stacji w promieniu 500 metrów, co jest logiczne, ponieważ większa liczba stacji w pobliżu zwiększa dostępność rowerów i ich rotację.
+
 ```{r}
 key_vars <- c("turnover_rate_norm", "peak_ratio", "commuter_index", "density_1000m", 
               "efficiency_score", "distance_to_center", "bilans")
@@ -594,52 +787,63 @@ if(length(key_vars) > 0) {
     Max = round(sapply(key_vars, function(x) max(data[[x]], na.rm = TRUE)), 3)
   )
   
-  print(summary_stats)
+  knitr::kable(summary_stats, caption = "Additional variables description",
+               col.names = c("Variable", "Mean", "SD", "Min", "Max"),
+               align = c('l', 'r', 'r', 'r', 'r'),
+               digits = 3) %>%
+    kableExtra::kable_styling(full_width = FALSE, position = "left")
 }
 
-# Dataset overview
-print("\nDataset dimensions:")
-print(dim(data))
+# Create summary data frame
+summary_df <- data.frame(
+  Metric = c("Dataset dimensions",
+             "Bilans range",
+             "Normalized turnover rate mean",
+             "Average distance to beach",
+             "Average stations within 1km"),
+  Value = c(paste(dim(data)[1], "rows ×", dim(data)[2], "columns"),
+  ifelse("bilans" %in% colnames(data),
+         paste(min(data$bilans, na.rm = TRUE), "to", max(data$bilans, na.rm = TRUE)),
+         "N/A"),
+  ifelse("turnover_rate_norm" %in% colnames(data),
+         round(mean(data$turnover_rate_norm, na.rm = TRUE), 2),
+         "N/A"),
+  ifelse("distance_to_beach_m" %in% colnames(data),
+         paste(round(mean(data$distance_to_beach_m, na.rm = TRUE)), "meters"),
+         "N/A"),
+  ifelse("density_1000m" %in% colnames(data),
+         round(mean(data$density_1000m, na.rm = TRUE), 1),
+         "N/A")
+))
 
-print("\nKey variables summary:")
-if("bilans" %in% colnames(data)) {
-  print(paste("Bilans range:", min(data$bilans, na.rm = TRUE), "to", max(data$bilans, na.rm = TRUE)))
-}
-if("turnover_rate_norm" %in% colnames(data)) {
-  print(paste("Normalized turnover rate mean:", round(mean(data$turnover_rate_norm, na.rm = TRUE), 2)))
-}
-if("distance_to_beach_m" %in% colnames(data)) {
-  print(paste("Average distance to beach:", round(mean(data$distance_to_beach_m, na.rm = TRUE)), "meters"))
-}
-if("density_1000m" %in% colnames(data)) {
-  print(paste("Average stations within 1km:", round(mean(data$density_1000m, na.rm = TRUE), 1)))
-}
+# Display with knitr
+knitr::kable(
+  summary_df,
+  caption = "Dataset Overview Summary",
+  col.names = c("Metric", "Value"),
+  align = c('l', 'r'),
+  digits = 2
+)
 
 ```
+Analiza opisowa zmiennych dodanych do modelu.
 
 ### Klasyczny Model Liniowy
 
 ```{r}
 # 1. Budowa modelu regresji liniowej
-model <- lm(log(turnover_rate_norm) ~ distance_to_center + density_500m + 
-                         distance_to_beach_m + public_tansport + points_of_interests, 
-           data = analysis_data)
+model <- lm(log(turnover_rate_norm) ~ distance_to_center + density_500m + distance_to_beach_m + public_tansport + points_of_interests, data = analysis_data)
 
 # 2. Podsumowanie modelu
 summary_model <- summary(model)
-print(summary_model)
 
 # 3. Testy diagnostyczne
 # Test normalności residuów (Shapiro-Wilk)
 shapiro_test <- shapiro.test(residuals(model))
-cat("\nTest normalności reszt (Shapiro-Wilk):\n")
-print(shapiro_test)
 
 # Test heteroskedastyczności (Breusch-Pagan)
 bp_test <- bptest(model)
-cat("\nTest heteroskedastyczności (Breusch-Pagan):\n")
-print(bp_test)
-# 
+
 # # 4. Wizualizacja
 # # Wykresy diagnostyczne
 # par(mfrow = c(2, 2))
@@ -651,27 +855,49 @@ print(bp_test)
 #   geom_smooth(method = "lm", se = FALSE) +
 #   labs(title = "Zależność bilansu od odległości do plaży",
 #        x = "Odległość do plaży (m)", y = "Bilans")
-# 
-# ggplot(data, aes(x = points_of_interests, y = bilans)) +
-#   geom_point() +
-#   geom_smooth(method = "lm", se = FALSE) +
-#   labs(title = "Zależność bilansu od liczby punktów interesu",
-#        x = "Liczba punktów interesu", y = "Bilans")
-# 
-# ggplot(data, aes(x = capacity, y = bilans)) +
-#   geom_point() +
-#   geom_smooth(method = "lm", se = FALSE) +
-#   labs(title = "Zależność bilansu od pojemności stacji",
-#        x = "Pojemność stacji", y = "Bilans")
-# 
 
 # 5. Analiza współliniowości (VIF)
 vif_values <- vif(model)
-cat("\nWspółczynniki VIF dla zmiennych:\n")
-print(vif_values)
+
+results_table <- data.frame(
+  Component = c("Model Formula",
+                "",
+                "R-squared",
+                "Adjusted R-squared",
+                "F-statistic",
+                "Shapiro-Wilk (Normality)",
+                "Breusch-Pagan (Heteroskedasticity)",
+                paste(names(vif_values), "VIF")),
+  Value = c(deparse(formula(model)),
+           round(summary_model$r.squared, 3),
+           round(summary_model$adj.r.squared, 3),
+           paste(round(summary_model$fstatistic[1], 1), 
+                "on", summary_model$fstatistic[2], 
+                "and", summary_model$fstatistic[3], "DF"),
+           paste("W =", round(shapiro_test$statistic, 3),
+                "p =", round(shapiro_test$p.value, 4)),
+           paste("BP =", round(bp_test$statistic, 3),
+                "p =", round(bp_test$p.value, 4)),
+           round(vif_values, 2)),
+  stringsAsFactors = FALSE
+)
+
+# Display with knitr
+knitr::kable(
+  results_table,
+  caption = "Linear Regression Model Summary",
+  col.names = c("Analysis Component", "Value"),
+  align = c('l', 'r'),
+  row.names = FALSE
+) %>%
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = TRUE,
+    position = "left"
+  )
 ```
 
-Model tłumaczy 51.8% zmienności logarytmu wskaźnika rotacji stacji rowerowych MEVO, co sugeruje umiarkowane dopasowanie. Wszystkie zmienne są istotne statystycznie, model jest wysoce istotny statystycznie. Reszty nie są idealnie normalne (na podstawie testu Shapiro-Wilka), brak heteroskedastyczności (Breusch-Pagan). Wartości VIF wskazują na brak istotnej współliniowości między zmiennymi. Najsilniejszymi predyktorami są odległość do centrum miasta, gęstość stacji w promieniu 500 metrów oraz liczba punktów transportu publicznego w pobliżu stacji.
+Model tłumaczy 34.8% zmienności logarytmu wskaźnika rotacji stacji rowerowych MEVO, co sugeruje umiarkowane dopasowanie. Wszystkie zmienne są istotne statystycznie, model jest wysoce istotny statystycznie. Reszty nie są idealnie normalne (na podstawie testu Shapiro-Wilka), brak heteroskedastyczności (Breusch-Pagan). Wartości VIF wskazują na brak istotnej współliniowości między zmiennymi. Najsilniejszymi predyktorami są odległość do centrum miasta, gęstość stacji w promieniu 500 metrów oraz liczba punktów transportu publicznego w pobliżu stacji.
 
 ```{r}
 # Obliczenie reszt modelu
@@ -679,7 +905,32 @@ residuals <- resid(model)
 
 # Test Morana I dla reszt
 moran_test_residuals <- moran.test(residuals, listw, zero.policy = TRUE)
-print(moran_test_residuals)
+
+# Create formatted output
+knitr::kable(
+  data.frame(
+    "Statistic" = c("Moran's I", "Expected I", "Variance", "Z-score", "p-value"),
+    "Value" = c(
+      round(moran_test_residuals$estimate[1], 4),
+      round(moran_test_residuals$estimate[2], 4),
+      round(moran_test_residuals$estimate[3], 6),
+      round(moran_test_residuals$statistic, 2),
+      format.pval(moran_test_residuals$p.value, digits = 3)
+    )
+  ),
+  caption = "Moran's I Test for Spatial Autocorrelation in Residuals",
+  align = c('l', 'r'),
+  col.names = c("Measure", "Value")
+) %>%
+kableExtra::kable_styling(
+  bootstrap_options = c("striped", "hover"),
+  full_width = FALSE,
+  position = "center"
+) %>%
+kableExtra::footnote(
+  general = paste("Alternative hypothesis:", moran_test_residuals$alternative),
+  general_title = "Note:"
+)
 ```
 
 Test Moran’s I wykazał silną dodatnią autokorelację przestrzenną reszt modelu regresji (I = 0.278, p \< 0.001). Oznacza to, że wartości reszt grupują się przestrzennie, co sugeruje, że model pomija kluczowe zmienne lub nie uwzględnia efektów sąsiedztwa. Obecność autokorelacji przestrzennej narusza założenia klasycznej regresji liniowej, prowadząc do błędnych wniosków i niedoszacowania błędów standardowych. Wymaga to zastosowania modeli przestrzennych, które uwzględniają te efekty.
@@ -687,7 +938,35 @@ Test Moran’s I wykazał silną dodatnią autokorelację przestrzenną reszt mo
 ```{r}
 # Testy LM dla różnych form autokorelacji
 lm_tests <- lm.RStests(model, listw, test = c("LMerr", "LMlag", "RLMerr", "RLMlag", "SARMA"), zero.policy = TRUE)
-print(lm_tests)
+
+test_results <- data.frame(
+  Test = c("LM Error", "LM Lag", "Robust LM Error", "Robust LM Lag", "SARMA"),
+  Statistic = sapply(lm_tests, function(x) round(x$statistic, 2)),
+  p.value = sapply(lm_tests, function(x) format.pval(x$p.value, eps = 0.001, digits = 3)),
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(
+  test_results,
+  caption = "Lagrange Multiplier Tests for Spatial Dependence",
+  col.names = c("Test Type", "Chi-squared", "p-value"),
+  align = c('l', 'c', 'c')
+) %>%
+kableExtra::kable_styling(
+  bootstrap_options = c("striped", "hover"),
+  full_width = FALSE
+) %>%
+kableExtra::row_spec(
+  which(test_results$p.value < 0.05),
+  bold = TRUE,
+  color = "white",
+  background = "#D7261E"
+) %>%
+kableExtra::footnote(
+  general = "Significant results (p < 0.05) indicate spatial dependence",
+  general_title = "Note:",
+  footnote_as_chunk = TRUE
+)
 ```
 
 Wyniki testów LM sugerują, że zarówno autokorelacja błędów (LMerr) jak i opóźnień przestrzennych (LMlag) są istotne statystycznie, co potwierdza potrzebę zastosowania modeli przestrzennych. Testy RLMerr i RLMlag również wskazują na istotność efektów przestrzennych. Model SARMA jest również istotny, co sugeruje, że zarówno efekty błędów jak i opóźnień przestrzennych są obecne w danych.
@@ -698,66 +977,95 @@ Wyniki testów LM sugerują, że zarówno autokorelacja błędów (LMerr) jak i 
 
 models <- list(
   "500m buffer" = lagsarlm(turnover_rate_norm ~ distance_to_center + density_500m + 
-                           distance_to_beach_m + public_tansport + points_of_interests,
+                           distance_to_beach_m + public_tansport,
                          data = analysis_data, listw = listw),
   
   "1000m buffer" = lagsarlm(turnover_rate_norm ~ distance_to_center + density_1000m +
-                            distance_to_beach_m + public_tansport + points_of_interests,
+                            distance_to_beach_m + public_tansport,
                           data = analysis_data, listw = listw),
   
   "2000m buffer" = lagsarlm(turnover_rate_norm ~ density_2000m + 
-                            distance_to_beach_m + public_tansport + points_of_interests,
+                            distance_to_beach_m + public_tansport,
                           data = analysis_data, listw = listw)
 )
 
-# Create comparison table
-stargazer(models, type = "html",
-          title = "Comparison of Spatial Lag Models Across Different Density Scales",
-          column.labels = c("500m", "1000m", "2000m"),
-          dep.var.labels = "Turnover Rate",
-          covariate.labels = c("Distance to Center (m)",
-                              "Density (500m)",
-                              "Density (1000m)",
-                              "Density (2000m)",
-                              "Distance to Beach (m)",
-                              "Public Transport Access",
-                              "Points of Interest",
-                              "ρ (Spatial Lag)"),
-          notes = c("*** p<0.01, ** p<0.05, * p<0.1"),
-          model.numbers = FALSE,
-          out = "model_comparison.html")
-
-# Create diagnostic comparison table
-diagnostics <- data.frame(
-  "Metric" = c("AIC", "Log Likelihood", "Moran's I (residuals)", "ρ (Spatial Lag)"),
-  "500m" = c(round(AIC(models[[1]]),1),
-            round(as.numeric(logLik(models[[1]])),1),
-            # round(summary(models[[1]])$Rsq,3),
-            round(moran.test(residuals(models[[1]]), listw)$estimate[1],3),
-            round(models[[1]]$rho,3)),
-  
-  "1000m" = c(round(AIC(models[[2]]),1),
-             round(as.numeric(logLik(models[[2]])),1),
-             # round(summary(models[[2]])$Rsq,3),
-             round(moran.test(residuals(models[[2]]), listw)$estimate[1],3),
-             round(models[[2]]$rho,3)),
-  
-  "2000m" = c(round(AIC(models[[3]]),1),
-             round(as.numeric(logLik(models[[3]])),1),
-             # round(summary(models[[3]])$Rsq,3),
-             round(moran.test(residuals(models[[3]]), listw)$estimate[1],3),
-             round(models[[3]]$rho,3))
+compare_table <- data.frame(
+  Model = names(models),
+  AIC = sapply(models, AIC),
+  LogLik = sapply(models, function(x) as.numeric(logLik(x))),
+  Rho = sapply(models, function(x) x$rho),
+  stringsAsFactors = FALSE
 )
 
-kable(diagnostics, caption = "Model Comparison Diagnostics", align = 'c') %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
-                full_width = FALSE) %>%
-  add_header_above(c(" ", "Density Buffer Radius" = 3)) %>%
-  footnote(general = "All models use spatial lag specification (SAR). Moran's I tests show residual spatial autocorrelation.")
+# Format numbers for better readability
+compare_table$AIC <- round(compare_table$AIC, 1)
+compare_table$LogLik <- round(compare_table$LogLik, 1)
+compare_table$Rho <- round(compare_table$Rho, 3)
 
-summary(models[[3]])
+# Print with kable
+kable(compare_table, 
+      caption = "Comparison of SAR Models with Different Buffer Sizes",
+      col.names = c("Model", "AIC", "Log Likelihood", "Rho (Spatial Autocorr.)"),
+      align = c("l", "r", "r", "r"),
+      row.names = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+# Extract model summary
+model_summary <- summary(models[[3]])
+
+# Create coefficient table
+coef_table <- as.data.frame(model_summary$Coef)
+coef_table <- cbind(
+  Variable = rownames(coef_table),
+  round(coef_table, 4)
+)
+rownames(coef_table) <- NULL
+
+# Create model fit statistics
+fit_stats <- data.frame(
+  Statistic = c("Rho", "Log Likelihood", "AIC", "LR Test p-value"),
+  Value = c(
+    round(model_summary$rho, 4),
+    round(as.numeric(logLik(models[[3]])), 1),
+    round(AIC(models[[3]]), 1),
+    ifelse(!is.null(model_summary$LR1$p.value), 
+           ifelse(model_summary$LR1$p.value < 0.001, "<0.001", 
+                  round(model_summary$LR1$p.value, 4)),
+           NA)
+  )
+)
+
+# Print coefficient table
+kable(coef_table, 
+      caption = "2000m Buffer Model: Coefficient Estimates",
+      col.names = c("Variable", "Estimate", "Std. Error", "z-value", "p-value"),
+      align = c("l", "r", "r", "r", "r"),
+      row.names = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  footnote(general = paste("Spatial autoregressive parameter Rho:", 
+                          round(model_summary$rho, 4)))
+
+# Print fit statistics
+kable(fit_stats, 
+      caption = "2000m Buffer Model: Model Fit Statistics",
+      col.names = c("Statistic", "Value"),
+      align = c("l", "r"),
+      row.names = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
 
 ```
+
+1.  Autokorelacja przestrzenna:
+    -   Współczynnik Rho (ρ = 0,3747, p \< 0,0001) jest istotny statystycznie, co oznacza, że występuje silna zależność przestrzenna – wartość zmiennej zależnej w jednej lokalizacji wpływa na wartości w sąsiednich obszarach.
+    -   Testy LR (p = 2,87e-10) i Wald (p = 1,27e-12) potwierdzają, że model z efektem przestrzennym jest lepszy niż zwykła regresja liniowa (OLS).
+2.  Znaczące zmienne objaśniające:
+    -   Gęstość stacji rowerowych w promieniu 2000 metrów Dodatni wpływ (7.1167 ± 1,55, p \< 0,0001) – im większa gęstość, tym wyższa wartość wskaźnika rotacji stacji. Każdy wzrost gęstości zabudowy o 1 jednostkę w sąsiedztwie (2000m) wiąże się ze wzrostem lokalnego wskaźnika o ~7.12 jednostek.
+    -   Każdy dodatkowy metr od plaży zmniejsza wskaźnik o 0.0535 jednostki (np. 100m dalej → spadek o ~5.35 jednostek). Silny efekt negatywny (p<0.001) → lokalizacja nadmorska jest czynnikiem kluczowym.
+    - Obecność transportu publicznego podnosi wskaźnik o ~92.62 jednostek w porównaniu do lokalizacji bez transportu. Najsilniejszy wpływ spośród wszystkich zmiennych → infrastruktura transportowa jest głównym motorem analizowanego zjawiska.
+3.  Jakość modelu:
+    -   AIC jest niższy (9791.9) niż w modelu liniowym (9829.3) → model przestrzenny lepiej dopasowany.
+    -   Brak autokorelacji reszt (LR test p < 0,001) → model dobrze uchwycił strukturę przestrzenną.
+
 
 ### Kompleksowe porównanie modeli
 
@@ -797,46 +1105,34 @@ models <- list(
 # Generate a comparison table
 modelsummary(models,
              stars = TRUE,  # show significance stars
-             output = "markdown" # options: "html", "latex", "markdown", etc.
-)
+             output = "kableExtra" 
+) %>%
+  kable_styling(position = "center")
 
 ```
 
+
 ## Wnioski i rekomendacje
 
-Model potwierdza **silne zależności przestrzenne** i wskazuje kluczowe czynniki (gęstość, odległość od plaży, transport).
+Model potwierdza *silne zależności przestrzenne* i wskazuje kluczowe czynniki (gęstość, odległość od plaży, transport).
 
 ### Podsumowanie wyników
 
-1.  Autokorelacja przestrzenna:
-    -   Współczynnik Rho (ρ = 0,3678, p \< 0,0001) jest istotny statystycznie, co oznacza, że występuje silna zależność przestrzenna – wartość zmiennej zależnej w jednej lokalizacji wpływa na wartości w sąsiednich obszarach.
-    -   Testy LR (p = 2,87e-10) i Wald (p = 1,27e-12) potwierdzają, że model z efektem przestrzennym jest lepszy niż zwykła regresja liniowa (OLS).
-2.  Znaczące zmienne objaśniające:
-    -   Gęstość stacji rowerowych w promieniu 2000 metrów Dodatni wpływ (6,84 ± 1,55, p \< 0,0001) – im większa gęstość, tym wyższa wartość wskaźnika rotacji stacji.
-    -   Odległość do plaży (p \< 0,01) oraz dostępność transportu publicznego (p \< 0,05) również mają istotny dodatni wpływ na rotację.
-    -   Liczba punktów interesu w pobliżu stacji nie jest istotna statystycznie (p = 0,12).
-3.  Jakość modelu:
-    -   AIC jest niższy (9791.5) niż w modelu liniowym (9829.3) → model przestrzenny lepiej dopasowany.
-    -   Brak autokorelacji reszt (LM test p = 0,536) → model dobrze uchwycił strukturę przestrzenną.
+Nierównowaga w bilansie wypożyczeń rowerów w Trójmieście wynika z kombinacji czynników urbanistycznych, społecznych i logistycznych. Skuteczne rozwiązanie tych problemów wymaga zarówno natychmiastowych działań operacyjnych, jak i długoterminowych inwestycji w infrastrukturę oraz system motywacyjny. Dzięki wdrożeniu zaproponowanych rozwiązań możliwe jest zwiększenie efektywności systemu, poprawa satysfakcji użytkowników oraz lepsze dostosowanie oferty do rzeczywistych potrzeb mieszkańców i turystów.
+
+Dane wskazują, że system MEVO jest strategicznie rozmieszczony, aby służyć zarówno turystom, jak i mieszkańcom, ułatwiając dostęp do plaż i terenów rekreacyjnych. System stanowi wartościowe uzupełnienie transportu publicznego w regionie, jednak wymaga ukierunkowanych działań optymalizacyjnych dla pełniejszej integracji obu systemów transportowych.
+
 
 ### Wnioski końcowe
 
-Wyniki analizy wskazują na istotne efekty przestrzenne w systemie rowerów miejskich MEVO, co potwierdzają zarówno klasyczne modele regresji, jak i modele przestrzenne. Najważniejsze czynniki wpływające na wskaźnik rotacji stacji to gęstość stacji w pobliżu, odległość do centrum miasta oraz dostępność transportu publicznego. Modele przestrzenne lepiej uwzględniają efekty sąsiedztwa i autokorelację przestrzenną, co prowadzi do bardziej wiarygodnych wyników.
+Wyniki analizy wskazują na istotne efekty przestrzenne w systemie rowerów miejskich MEVO, co potwierdzają  modele przestrzenne. Najważniejsze czynniki wpływające na wskaźnik rotacji stacji to gęstość stacji w pobliżu,  dostępność transportu publicznego (silne dodatnie wpływy) oraz odległość do plaży (działa negatywnie, ale z mniejszą siłą). Wszystkie zmienne są skrajnie istotne (p<0.001), co potwierdza trafność doboru predyktorów, wysokie wartości z-value (>4.5) wskazują na dużą precyzję oszacowań. Tabela jednoznacznie pokazuje, że czynniki przestrzenne są kluczowe w wyjaśnianiu zróżnicowania analizowanego zjawiska.
 
 ### Rekomendacje
 
-1.  Działania strategiczne:
+Działania strategiczne:
 
 -   Inwestycje w transport publiczny mogą znacząco zwiększyć wartość analizowanego zjawiska (np. ceny nieruchomości, atrakcyjność dzielnicy).
 
 -   Rozwój obszarów o wysokiej gęstości zaludnienia może przynieść większe korzyści dzięki efektowi skali.
 
 -   Bliskość plaży jest istotnym czynnikiem – warto promować tereny nadmorskie lub poprawiać ich dostępność.
-
-2.  Zmienne nieistotne:
-
--   Punkty zainteresowania (POI) nie mają statystycznie istotnego wpływu – można je wykluczyć z modelu lub przetestować inną ich specyfikację (np. tylko konkretne typy POI).
-
-3.  Uwzględnienie efektów przestrzennych:
-
--   Ponieważ sąsiedztwo ma wpływ (ρ = 0,37), planując interwencje, należy brać pod uwagę nie tylko dany obszar, ale też jego otoczenie (np. inwestycje w jednej dzielnicy mogą oddziaływać na sąsiednie).
