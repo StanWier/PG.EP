@@ -7,7 +7,7 @@ output:
   html_document: 
     toc: true
     css: style.css
-    theme: sandstone
+    theme: journal
     fig_width: 10
     fig_height: 10
     fig_caption: true
@@ -47,21 +47,27 @@ Projekt zakłada empiryczne przetestowanie hipotez dotyczących mechanizmów rz�
 
 Dobór literatury do niniejszego raportu został oparty na trzech kryteriach: (1) zgodności tematycznej z przedmiotem badania, tj. systemami rowerów współdzielonych i ich przestrzenną charakterystyką użytkowania; (2) zastosowaniu metod ekonometrii przestrzennej; oraz (3) istotności cytowań i wkładu danej pracy w rozwój wiedzy na temat efektów sąsiedztwa i spillover w transporcie miejskim. Uwzględniono zarówno klasyczne pozycje teoretyczne, jak i nowoczesne, empiryczne badania o charakterze aplikacyjnym.
 
-LeSage, J., & Pace, R. K. (2009). Introduction to Spatial Econometrics.
-
+1. LeSage, J., & Pace, R. K. (2009). *Introduction to Spatial Econometrics*.  
 Podstawowa publikacja przedstawiająca metodykę ekonometrii przestrzennej. Autorzy systematyzują modele przestrzenne, takie jak SAR (Spatial Autoregressive), SEM (Spatial Error Model) i SAC (Spatial Autocorrelation Model), omawiając ich zastosowanie w analizie danych przestrzennych. Praca stanowi fundament teoretyczny dla niniejszego badania, szczególnie w zakresie interpretacji autokorelacji i efektów przestrzennych λ.
 
-Zhao, J. et al. (2020). Spatial spillover effects in urban bike sharing systems.
-
+2. Zhao, J., Deng, W., Song, Y., & Zhu, Y. (2020). Spatial spillover effects in urban bike sharing systems. *Journal of Transport Geography*, 88, 102863.  
 Empiryczne badanie systemu rowerowego w Chinach z wykorzystaniem modeli SAR. Autorzy dowodzą istnienia efektów spillover pomiędzy stacjami – użytkowanie jednej stacji wpływa na sąsiednie. Jest to bezpośrednie odniesienie do hipotezy H₄ niniejszego raportu i potwierdzenie zasadności uwzględniania przestrzennej zależności popytu.
 
-Faghih-Imani, A. et al. (2017). How land-use impacts bicycle flows.
-
+3. Faghih-Imani, A., Eluru, N., El-Geneidy, A. M., Rabbat, M., & Haq, U. (2017). How land-use impacts bicycle flows: Evidence from the bicycle-sharing system (BIXI) in Montreal. *Transportation Research Part A: Policy and Practice*, 95, 164–176.  
 Badanie przeprowadzone na danych z systemu rowerowego w Nowym Jorku. Autorzy analizują wpływ zagospodarowania terenu (strefy mieszkaniowe, komercyjne, parki, transport) na przepływ rowerów. Kluczowe dla zrozumienia teorii efektów sieciowych w systemach współdzielonych i operacjonalizacji zmiennych przestrzennych – takich jak liczba przystanków komunikacji publicznej czy odległość od atrakcji miejskich.
 
-Dane operacyjne Mevo (2024–2025). Zestaw danych agregowanych.
-
+4. Dane operacyjne Mevo (2024–2025). Zestaw danych agregowanych.  
 Główny zbiór danych empirycznych wykorzystanych w badaniu. Obejmuje 603 stacje w Trójmieście i zawiera informacje o liczbie wypożyczeń i zwrotów, pojemności stacji, lokalizacji oraz cechach otoczenia. Dane te zostały przekształcone do formatu panelowego i wykorzystane w estymacji modeli SAR/SEM dla identyfikacji kluczowych determinantów relatywnej popularności (TTR).
+
+5. Wang, K., & Chen, C. (2020). Temporal dynamics and determinants of bike-sharing usage: A spatial panel approach. *Sustainable Cities and Society*, 61, 102338.  
+Publikacja koncentrująca się na analizie sezonowości i zmian czasowych w korzystaniu z systemów rowerów miejskich. Wprowadza podejście panelowe uwzględniające zarówno komponenty przestrzenne, jak i czasowe, co stanowi ważne uzupełnienie dla dalszych badań zaproponowanych w niniejszym raporcie.
+
+6. Zhou, X. (2015). Understanding spatiotemporal patterns of biking behavior by analyzing massive bike sharing data in Chicago. *PLOS ONE*, 10(10), e0137922.  
+Badanie prezentujące metody eksploracji dużych zbiorów danych (big data) w kontekście zachowań rowerzystów oraz ich zmienności przestrzenno-czasowej. Autor demonstruje wykorzystanie GIS i analizy przestrzennej do identyfikacji kluczowych stref i wzorców użytkowania, co może posłużyć jako przykład technik stosowanych w niniejszym badaniu.
+
+7. Cervero, R., & Kockelman, K. (1997). Travel demand and the 3Ds: Density, diversity, and design. *Transportation Research Part D: Transport and Environment*, 2(3), 199–219.  
+Klasyczna praca dotycząca czynników urbanistycznych wpływających na zachowania transportowe. Koncepcja „3D” – gęstości, różnorodności funkcji i jakości przestrzeni – jest szeroko wykorzystywana w badaniach nad mobilnością miejską i ma zastosowanie w interpretacji wpływu otoczenia na wykorzystanie stacji rowerowych.
+
 
 ### 1.5 Hipotezy badawcze
 
@@ -1373,9 +1379,19 @@ W dalszych badaniach zaleca się rozważenie zastosowania innych niż euklidesow
 
 Podsumowując, dalsze badania powinny zmierzać w kierunku integracji analizy przestrzennej z wymiarem czasowym i operacyjnym systemu Mevo, co pozwoliłoby na pełniejsze zrozumienie uwarunkowań jego funkcjonowania oraz wspierało podejmowanie decyzji strategicznych.
 
-## 5. Bibligorafia
+## 5. Bibliografia
 
-LeSage, J., & Pace, R. K. (2009). Introduction to Spatial Econometrics. CRC Press.
-Zhao, J. et al. (2020). Spatial spillover effects in urban bike sharing systems. Journal of Transport Geography, 88, 102863.
-Faghih-Imani, A. et al. (2017). How land-use impacts bicycle flows. Transportation Research Part A, 95, 164-176.
-Dane operacyjne Mevo (2024-2025). Zestaw danych agregowanych.
+1. Dane operacyjne Mevo (2024–2025). Zestaw danych agregowanych. Dostęp wewnętrzny.
+
+2. LeSage, J., & Pace, R. K. (2009). *Introduction to Spatial Econometrics*. CRC Press.
+
+3. Zhao, J., Deng, W., Song, Y., & Zhu, Y. (2020). Spatial spillover effects in urban bike sharing systems. *Journal of Transport Geography*, 88, 102863.
+
+4. Faghih-Imani, A., Eluru, N., El-Geneidy, A. M., Rabbat, M., & Haq, U. (2017). How land-use impacts bicycle flows: Evidence from the bicycle-sharing system (BIXI) in Montreal. *Transportation Research Part A: Policy and Practice*, 95, 164–176.
+
+5. Wang, K., & Chen, C. (2020). Temporal dynamics and determinants of bike-sharing usage: A spatial panel approach. *Sustainable Cities and Society*, 61, 102338.
+
+6. Zhou, X. (2015). Understanding spatiotemporal patterns of biking behavior by analyzing massive bike sharing data in Chicago. *PLOS ONE*, 10(10), e0137922.
+
+7. Cervero, R., & Kockelman, K. (1997). Travel demand and the 3Ds: Density, diversity, and design. *Transportation Research Part D: Transport and Environment*, 2(3), 199–219.
+
