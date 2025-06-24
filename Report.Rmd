@@ -13,6 +13,7 @@ output:
   pdf_document:
     toc: true
 ---
+*Repozytorium*: [github.com/StanWier/PG.EP](https://github.com/StanWier/PG.EP) 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
@@ -1128,18 +1129,10 @@ Wyniki analizy wskazują na istotne efekty przestrzenne w systemie rowerów miej
 
 ### Rekomendacje
 
-1.  Działania strategiczne:
+Działania strategiczne:
 
 -   Inwestycje w transport publiczny mogą znacząco zwiększyć wartość analizowanego zjawiska (np. ceny nieruchomości, atrakcyjność dzielnicy).
 
 -   Rozwój obszarów o wysokiej gęstości zaludnienia może przynieść większe korzyści dzięki efektowi skali.
 
 -   Bliskość plaży jest istotnym czynnikiem – warto promować tereny nadmorskie lub poprawiać ich dostępność.
-
-2.  Zmienne nieistotne:
-
--   Punkty zainteresowania (POI) nie mają statystycznie istotnego wpływu – można je wykluczyć z modelu lub przetestować inną ich specyfikację (np. tylko konkretne typy POI).
-
-3.  Uwzględnienie efektów przestrzennych:
-
--   Ponieważ sąsiedztwo ma wpływ (ρ = 0,37), planując interwencje, należy brać pod uwagę nie tylko dany obszar, ale też jego otoczenie (np. inwestycje w jednej dzielnicy mogą oddziaływać na sąsiednie).
